@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="utf-8">
+        {% load static %}
+        <link rel="icon" href="{% static 'posts/logo.png' %}">
+        <title>Flux RSS</title>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+        <link href="https://fonts.googleapis.com/css2?family=Open Sans:wght@400;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="{% static 'posts/stylesheet.css' %}">
+    </head>
+    <body>
+        <div class="content-wrapper">
+            <nav>
+                <!-- Partie logo -->
+                <div>
+                    <img src="{% static 'posts/logo.png' %}" style="width: 65px;">
+                    <h1 style="margin-left: 5px">Fluxy</h1>
+                </div>
+                <div class="inner-nav">
+                    <!-- Partie ou j'aurai pu manager user_management -->
+                    <h3>MANAGE</h3>
+                    <div id="manage-list">
+                        <div class="item">
+                            <button><img src="{% static 'posts/icon_1.png' %}"> User</button>
+                        </div>
+                        <div class="item">
+                            <button><img src="{% static 'posts/icon_2.png' %}"> Read later</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <!-- Ajout url RSS des sites -->
+                    <h3>RSS URL</h3>
+                    <button class="open-button" onclick="openForm()">+ Add content</button>
+                    <!-- The form -->
+                    <div id="myForm" class="form-popup">
+                        <h1>Ajoutez un nouveau feed</h1>
+                        <p>Accèdez à de nouvelles newsletter avec un lien RSS pour être à la page !</p>
+                      <form action="" method="post" enctype="multipart/form-data">
+                          
+                          {% csrf_token %}
+                            {{form}}
+                          
+                        <button type="submit">Add</button>
+                        <button type="button" onclick="closeForm()">Close</button>
+                      </form>
+                    </div>
+                    <hr>
+                    <!-- Visualisation des feeds dans BDD -->
+                    <h3>FEEDS</h3>
+                    <button onclick="fetchAllFeedItems()">Show all</button>
+                    <div id="feed-list">
+    
+                    </div>
+                </div>
+            </nav>
+            <!-- Main avec affichage des feedItems et de la recherche -->
+            <main class="container scrollable">
+                <div class="head">
+                    <h1>Dernièrement</h1>
+                    <p>Découvrez l'actualité sur vos sites de News.</p>
+                </div>
+
+                <div class="research-div">
+                    <input type="text" class="research-input" id="search" onkeyup="search()" placeholder="Search articles or feed items..">
+                </div>
+
+                <div id="feeditems-list"></div>
+
+            </main>
+        </div>
+    
+    
+    
+    <script>
+        function openForm() {
+          document.getElementById("myForm").style.display = "block";
+        }
+        
+        function closeForm() {
+          document.getElementById("myForm").style.display = "none";
+        }
+
+        //Choix d'utiliser FetchAPI
+        async function fetchFeeds() {
+            try {
+                const response = await fetch('/api/feeds/');
+                const data = await response.json();
+                displayFeeds(data);
+
+            } catch (error) {
+                console.error('Erreur lors de la récupération des feeds :', error);
+            }
+        }
+
+        async function fetchFeedItems(pk){
+            //récupération et affichage du feed item du feed specifique
+            try {
+                const item_response = await fetch(`/api/feeds/${pk}/items/`);
+                const item_data = await item_response.json();
+                displayFeedItems(item_data);
+            } catch (error) {
+                console.error('Erreur lors de la récupération des feedItems :', error);
+            }
+        }
+
+        async function fetchAllFeedItems(){
+            //récupération et affichage du feed item
+            try {
+                const item_response = await fetch(`/api/feeds/items/`);
+                const item_data = await item_response.json();
+                displayFeedItems(item_data);
+            } catch (error) {
+                console.error('Erreur lors de la récupération des feedItems general :', error);
+            }
+        }
+        
+        async function deleteFeed(pk) {
+            try {
+                const response = await fetch(`/api/feeds/${pk}/delete/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+        
+                if (response.ok) {
+                    console.log('Feed supprimé avec succès');
+                } else {
+                    console.log(response)
+                    console.error('Erreur lors de la suppression du feed');
+                }
+                } catch (error) {
+                    console.error('Erreur lors de la suppression :', error);
+                }
+        }
+        
+        async function search() {
+            const searchQuery = document.getElementById('search').value; // récupère la valeur du champ de recherche
+            
+            try {
+                const response = await fetch(`/api/feeds/items/?search=${searchQuery}`); // envoie la recherche à l'API
+                const data = await response.json();
+                displayFeedItems(data); // affiche les items filtrés
+            } catch (error) {
+                console.error('Erreur lors de la récupération des items :', error);
+            }
+        }
+        
+        function displayFeeds(feeds) {
+            const feedList = document.getElementById('feed-list');
+            feeds.forEach(feed => {
+                const feedItem = document.createElement('div');
+                feedItem.classList.add('feed-item');
+                feedItem.onclick = function(){fetchFeedItems(feed.id)};
+                feedItem.innerHTML = `<div class="info"><p>${feed.title}</p></div><div class="actions"><button name="edit">Edit</button><button onclick="deleteFeed(${feed.id})" name="delete">Delete</button></div>`;
+                feedList.appendChild(feedItem);
+            });
+        }
+        
+        function displayFeedItems(feedItems) {
+            const feedItemList = document.getElementById('feeditems-list');
+            feedItemList.innerHTML=``;
+            feedItems.forEach(feedI => {
+                const feedItem = document.createElement('div');
+                feedItem.classList.add('feeditem');
+                feedItem.innerHTML = `<a href="${feedI.link}"><article><h3>${feedI.title}</h3><p>${feedI.published_date}</p><p>${feedI.desc}</p></article></a>`;
+                feedItemList.appendChild(feedItem);
+            });
+        }
+        
+        fetchFeeds();
+    </script>
+    </body>
+</html>
